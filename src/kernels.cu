@@ -32,7 +32,7 @@ __device__ vec3 color(const ray& r)
   return (1.0f-t)*vec3(1.0, 1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
 }
 
-__global__ void kernel_render(vec3 *fb, int max_x, int max_y, vec3 lower_left_corner, vec3 horizontal, vec3 vertical, vec3 origin)
+__global__ void kernel_render(vec3 *fb, int max_x, int max_y, camera &cam) 
 {
   int j = threadIdx.x + blockIdx.x * blockDim.x;
   int i = threadIdx.y + blockIdx.y * blockDim.y;
@@ -42,15 +42,22 @@ __global__ void kernel_render(vec3 *fb, int max_x, int max_y, vec3 lower_left_co
     return;
   }
 
-  int pixel_index = i * max_x + j;
-  float u = float(j) / float(max_x);
-  float v = float(i) / float(max_y);
+  vec3 P(j, i, 1);
+  P /= vec3(max_x, max_y, 1);
+  P = 2 * P - vec3(1, 1, 1);
 
-  ray r(origin, lower_left_corner + u * horizontal + v * );
-  fb[pixel_index] = color(r);
+  vec3 orig = cam.pos;
+  vec3 dir = cam.dir + cam.right * P.x() * std::tan(cam.fov / 2.f) * cam.AR + cam.up * P.y() * std::tan(cam.fov / 2.f);
+  dir.make_unit_vector();
+
+  int pixel_index = i * max_x + j;
+
+  ray r(orig, dir);
+  // fb[pixel_index] = color(r);
+  fb[pixel_index] = vec3(1,1,1);
 }
 
-void render(int nx, int ny, int tx, int ty)
+void render(int nx, int ny, int tx, int ty, camera &cam) 
 {
   long long num_pixels = nx * ny;
   size_t fb_size = num_pixels * sizeof(vec3);
@@ -61,10 +68,7 @@ void render(int nx, int ny, int tx, int ty)
   dim3 blocks(nx / tx + 1, ny / ty + 1);
   dim3 threads(tx, ty);
 
-  kernel_render<<<blocks, threads>>>(fb, nx, ny, vec3(-2.0, -1.0, -1.0),
-            vec3(4.0, 0.0, 0.0),
-            vec3(0.0, 2.0, 0.0),
-            vec3(0.0, 0.0, 0.0));
+  kernel_render<<<blocks, threads>>>(fb, nx, ny, cam);
 
   checkCudaErrors(cudaGetLastError());
   checkCudaErrors(cudaDeviceSynchronize());
