@@ -7,23 +7,13 @@
 
 int main()
 {
-  int nx = 200, ny = 100;
-  
-  for (int j = ny - 1; j >= 0; j--)
-  {
-    for (int i = 0; i < nx; i++)
-    {
-      float r = float(i) / float(nx);
-      float g = float(j) / float(ny);
-      float b = 0.2;
+  int nx = 1000, ny = 600;
+  int tx = 8, ty = 8;
 
-      int ir = int(255.99 * r);
-      int ig = int(255.99 * g);
-      int ib = int(255.99 * b);
+  std::cerr << "Rendering a " << nx << "x" << ny << " image ";
+  std::cerr << "in " << tx << "x" << ty << " blocks.\n";
 
-      std::cout << ir << " " << ig << " " << ib << "\n";
-    }
-  }
+  render(nx, ny, tx, ty);
 
   return 0;
 }
