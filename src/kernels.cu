@@ -32,7 +32,7 @@ __device__ vec3 color(const ray& r)
   return (1.0f-t)*vec3(1.0, 1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
 }
 
-__global__ void kernel_render(vec3 *fb, int max_x, int max_y, camera &cam) 
+__global__ void kernel_render(vec3 *fb, int max_x, int max_y, camera cam) 
 {
   int j = threadIdx.x + blockIdx.x * blockDim.x;
   int i = threadIdx.y + blockIdx.y * blockDim.y;
@@ -47,17 +47,15 @@ __global__ void kernel_render(vec3 *fb, int max_x, int max_y, camera &cam)
   P = 2 * P - vec3(1, 1, 1);
 
   vec3 orig = cam.pos;
-  vec3 dir = cam.dir + cam.right * P.x() * std::tan(cam.fov / 2.f) * cam.AR + cam.up * P.y() * std::tan(cam.fov / 2.f);
-  dir.make_unit_vector();
+  vec3 dir = unit_vector(cam.dir + cam.right * P.x() * std::tan(cam.fov / 2.f) * cam.AR + cam.up * P.y() * std::tan(cam.fov / 2.f));
 
   int pixel_index = i * max_x + j;
 
   ray r(orig, dir);
-  // fb[pixel_index] = color(r);
-  fb[pixel_index] = vec3(1,1,1);
+  fb[pixel_index] = color(r);
 }
 
-void render(int nx, int ny, int tx, int ty, camera &cam) 
+void render(int nx, int ny, int tx, int ty, camera cam) 
 {
   long long num_pixels = nx * ny;
   size_t fb_size = num_pixels * sizeof(vec3);

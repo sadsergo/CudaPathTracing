@@ -12,14 +12,11 @@ public:
                              const uint32_t height, float fov)
       : fov(fov), AR(float(width) / float(height)), pos(pos)
   {
-      dir = target - pos;
-      dir.make_unit_vector();
+    dir = unit_vector(target - pos);
 
-      right = cross(dir, up);
-      right.make_unit_vector();
+    right = unit_vector(cross(dir, up));
 
-      this->up = cross(dir, right);
-      (this->up).make_unit_vector();
+    this->up = unit_vector(cross(dir, right));
   }
 
   vec3 up;
