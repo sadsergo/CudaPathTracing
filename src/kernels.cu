@@ -25,14 +25,24 @@ __device__ bool hit_sphere(const vec3& center, float radius, const ray& r)
 
 __device__ vec3 color(const ray& r) 
 {
-  if (hit_sphere(vec3(0,0,-1), 0.5, r))
+  if (hit_sphere(vec3(0,0,0), 0.5, r))
         return vec3(1,0,0);
   vec3 unit_direction = unit_vector(r.direction());
   float t = 0.5f*(unit_direction.y() + 1.0f);
   return (1.0f-t)*vec3(1.0, 1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
 }
 
-__global__ void kernel_render(vec3 *fb, int max_x, int max_y, camera cam) 
+__global__ void kernel_render_init(int max_x, int max_y, curandState *rand_state) 
+{
+  int j = threadIdx.x + blockIdx.x * blockDim.x;
+  int i = threadIdx.y + blockIdx.y * blockDim.y;
+  if((j >= max_x) || (i >= max_y)) return;
+  int pixel_index = i*max_x + j;
+  //Each thread gets same seed, a different sequence number, no offset
+  curand_init(1984, pixel_index, 0, &rand_state[pixel_index]);
+}
+
+__global__ void kernel_render(vec3 *fb, int max_x, int max_y, int ns, camera cam, curandState *rand_state) 
 {
   int j = threadIdx.x + blockIdx.x * blockDim.x;
   int i = threadIdx.y + blockIdx.y * blockDim.y;
@@ -42,20 +52,26 @@ __global__ void kernel_render(vec3 *fb, int max_x, int max_y, camera cam)
     return;
   }
 
-  vec3 P(j, i, 1);
-  P /= vec3(max_x, max_y, 1);
-  P = 2 * P - vec3(1, 1, 1);
-
-  vec3 orig = cam.pos;
-  vec3 dir = unit_vector(cam.dir + cam.right * P.x() * std::tan(cam.fov / 2.f) * cam.AR + cam.up * P.y() * std::tan(cam.fov / 2.f));
-
   int pixel_index = i * max_x + j;
+  curandState local_rand_state = rand_state[pixel_index];
 
-  ray r(orig, dir);
-  fb[pixel_index] = color(r);
+  for (int s = 0; s < ns; s++)
+  {
+    vec3 P((float)j + curand_uniform(&local_rand_state), (float)i + curand_uniform(&local_rand_state), 1.f);
+    P /= vec3(max_x, max_y, 1.f);
+    P = 2 * P - vec3(1.f, 1.f, 1.f);
+
+    vec3 orig = cam.pos;
+    vec3 dir = unit_vector(cam.dir + cam.right * P.x() * std::tan(cam.fov / 2.f) * cam.AR + cam.up * P.y() * std::tan(cam.fov / 2.f));
+
+    ray r(orig, dir);
+    fb[pixel_index] += color(r);
+  }
+
+  fb[pixel_index] /= (float)ns;
 }
 
-void render(int nx, int ny, int tx, int ty, camera cam) 
+void render(int nx, int ny, int tx, int ty, int ns, camera cam) 
 {
   long long num_pixels = nx * ny;
   size_t fb_size = num_pixels * sizeof(vec3);
@@ -63,10 +79,18 @@ void render(int nx, int ny, int tx, int ty, camera cam)
   vec3 *fb;
   checkCudaErrors(cudaMallocManaged((void**)&fb, fb_size));
 
+  // allocate random state
+  curandState *d_rand_state;
+  checkCudaErrors(cudaMalloc((void **)&d_rand_state, num_pixels*sizeof(curandState)));
+
   dim3 blocks(nx / tx + 1, ny / ty + 1);
   dim3 threads(tx, ty);
 
-  kernel_render<<<blocks, threads>>>(fb, nx, ny, cam);
+  kernel_render_init<<<blocks, threads>>>(nx, ny, d_rand_state);
+  checkCudaErrors(cudaGetLastError());
+  checkCudaErrors(cudaDeviceSynchronize());
+
+  kernel_render<<<blocks, threads>>>(fb, nx, ny, ns, cam, d_rand_state);
 
   checkCudaErrors(cudaGetLastError());
   checkCudaErrors(cudaDeviceSynchronize());

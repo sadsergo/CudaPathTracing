@@ -2,6 +2,7 @@
 #define RAYH
 
 #include "vec3.cuh"
+#include <cuda_runtime.h>
 
 class ray
 {

@@ -5,6 +5,7 @@ project(engine LANGUAGES CXX CUDA)
 set(SOURCES
     src/main.cpp
     src/kernels.cu
+
 )
 
 # Create the executable

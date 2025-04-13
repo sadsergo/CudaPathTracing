@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <iostream>
 
+#include <cuda_runtime.h>
+
 class vec3
 {
 public:
