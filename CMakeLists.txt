@@ -8,6 +8,9 @@ set(SOURCES
 
 )
 
+set(CMAKE_CUDA_HOST_COMPILER clang-14)
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch=compute_61")  # Pascal (GTX 10-series)
+
 # Create the executable
 add_executable(engine ${SOURCES})
 

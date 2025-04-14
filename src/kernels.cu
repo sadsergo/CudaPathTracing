@@ -1,6 +1,13 @@
 
 #include "kernels.cuh"
+#include <vector>
 
+// stb_image is a single-header C library, which means one of your cpp files must have
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+
+#include "stb_image.h"
+#include "stb_image_write.h"
 
 void check_cuda(cudaError_t result, char const *const func,
                 const char *const file, int const line) {
@@ -71,13 +78,9 @@ __global__ void kernel_render(vec3 *fb, int max_x, int max_y, int ns, camera cam
   fb[pixel_index] /= (float)ns;
 }
 
-void render(int nx, int ny, int tx, int ty, int ns, camera cam) 
+void render(vec3 *fb, int nx, int ny, int tx, int ty, int ns, camera cam)
 {
   long long num_pixels = nx * ny;
-  size_t fb_size = num_pixels * sizeof(vec3);
-
-  vec3 *fb;
-  checkCudaErrors(cudaMallocManaged((void**)&fb, fb_size));
 
   // allocate random state
   curandState *d_rand_state;
@@ -96,17 +99,21 @@ void render(int nx, int ny, int tx, int ty, int ns, camera cam)
   checkCudaErrors(cudaDeviceSynchronize());
 
   // Output FB as Image
-  std::cout << "P3\n" << nx << " " << ny << "\n255\n";
-  for (int i = ny-1; i >= 0; i--) {
-      for (int j = 0; j < nx; j++) {
-          size_t pixel_index = i*nx + j;
+  std::vector<unsigned char> rgb_buffer(nx * ny * 3);
 
-          int ir = int(255.99*fb[pixel_index].r());
-          int ig = int(255.99*fb[pixel_index].g());
-          int ib = int(255.99*fb[pixel_index].b());
-          std::cout << ir << " " << ig << " " << ib << "\n";
-      }
+  for (int i = 0; i < ny; i++)
+  {
+    for (int j = 0; j < nx; j++)
+    {
+      size_t im_index = 3 * i * nx + j * 3;
+      size_t pixel_index = i * nx + j;
+      rgb_buffer[im_index + 0] = static_cast<unsigned char>(fb[pixel_index].x() * 255.0f);     // R
+      rgb_buffer[im_index + 1] = static_cast<unsigned char>(fb[pixel_index].y() * 255.0f);     // G
+      rgb_buffer[im_index + 2] = static_cast<unsigned char>(fb[pixel_index].z() * 255.0f);     // B
+    }
   }
 
-  checkCudaErrors(cudaFree(fb));
+  stbi_write_png("out.png", nx, ny, 3, rgb_buffer.data(), nx * 3);
+
+  checkCudaErrors(cudaFree(d_rand_state));
 }

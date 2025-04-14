@@ -18,4 +18,4 @@ void check_cuda(cudaError_t result, char const *const func,
 __global__ void kernel_render(vec3 *fb, int max_x, int max_y, int nx, camera cam, curandState *rand_state);
 __device__ vec3 color(const ray& r);
 
-void render(int nx, int ny, int tx, int ty, int ns, camera cam);
+void render(vec3 *fb, int nx, int ny, int tx, int ty, int ns, camera cam);
